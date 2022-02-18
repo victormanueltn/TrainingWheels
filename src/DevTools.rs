@@ -9,7 +9,7 @@ rust_fsm::state_machine! {
     DevToolsStates(Initial)
 
     Initial(Initialize) => UseSDK,
-    Initial(OpenFile) => QueryFileName,
+    UseSDK(OpenFile) => QueryFileName,
     QueryFileName(ObtainedFileName) => UseSDK,
 }
 
@@ -64,7 +64,10 @@ impl DevToolsApplication {
 
     pub fn render(&mut self, ctx: &CtxRef) {
         match self.states.state() {
-            DevToolsStatesState::Initial => self.render_use_SDK(&ctx),
+            DevToolsStatesState::Initial => {
+                self.states.consume(&DevToolsStatesInput::Initialize);
+                ()
+            }
             DevToolsStatesState::UseSDK => self.render_use_SDK(&ctx),
             DevToolsStatesState::QueryFileName => self.render_query_file_name(&ctx),
         }
