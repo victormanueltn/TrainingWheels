@@ -119,14 +119,14 @@ impl TrainingWheelsApplication {
     }
 
     fn render_use_SDK(&mut self, ctx: &CtxRef) {
-        eframe::egui::SidePanel::left("").show(ctx, |ui| {
+        eframe::egui::SidePanel::left("SidePanel").show(&ctx, |ui| {
             if ui.button("Generate file and exit").clicked() {
                 self.states.consume(&StatesInput::GenerateFile);
                 let file_content = self.SDK.get_file_content();
                 self.generate_file(&self.name_of_output_file, &file_content);
             }
         });
-        self.SDK.render(ctx);
+        self.SDK.render(&ctx);
     }
 }
 
