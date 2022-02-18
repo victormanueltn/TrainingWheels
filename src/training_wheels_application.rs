@@ -46,8 +46,9 @@ impl eframe::epi::App for TrainingWheelsApplication {
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
-            if ui.button("Finish and generate file").clicked() {
+            if ui.button("Generate file and exit").clicked() {
                 self.generate_file(&self.name_of_output_file);
+                frame.quit();
             }
         });
     }
