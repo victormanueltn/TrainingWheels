@@ -11,7 +11,9 @@ rust_fsm::state_machine! {
     Initial(Initialize) => UseSDKBasic,
     UseSDKBasic(OpenFile) => QueryFileName,
     QueryFileName(ObtainedFileName) => UseSDKWithFile,
-    UseSDKBasic(PrintTableOfContents) => UseSDKBasic,
+    UseSDKWithFile(PrintTableOfContents) => UseSDKWithFile,
+    UseSDKWithFile(ExportInAnotherFormat) => QueryOutputFileName,
+    QueryOutputFileName(ObtainedOutputFileName) => UseSDKWithFile,
 }
 
 #[derive(Clone)]
@@ -51,6 +53,11 @@ impl DevToolsApplication {
                 DevToolsStatesInput::PrintTableOfContents => {
                     self.apply_print_table_of_contents(&resulting_string)
                 }
+                DevToolsStatesInput::ExportInAnotherFormat => resulting_string,
+                DevToolsStatesInput::ObtainedOutputFileName => self.apply_export_in_another_format(
+                    &resulting_string,
+                    &transition.associated_string,
+                ),
             }
         }
         resulting_string
@@ -60,6 +67,19 @@ impl DevToolsApplication {
         let resulting_string =
             str::replace(&resulting_string, "%placeholder%", &self.snippets.open_file);
         str::replace(&resulting_string, "%file_name%", file_name)
+    }
+
+    fn apply_export_in_another_format(
+        &self,
+        resulting_string: &String,
+        output_file_name: &String,
+    ) -> String {
+        let resulting_string = str::replace(
+            &resulting_string,
+            "%placeholder%",
+            &self.snippets.export_in_another_format,
+        );
+        str::replace(&resulting_string, "%output_file_name%", output_file_name)
     }
 
     fn apply_print_table_of_contents(&self, resulting_string: &String) -> String {
@@ -84,6 +104,7 @@ impl DevToolsApplication {
             DevToolsStatesState::UseSDKBasic => self.render_use_SDK(&ctx),
             DevToolsStatesState::QueryFileName => self.render_query_file_name(&ctx),
             DevToolsStatesState::UseSDKWithFile => self.render_use_SDK_with_file(&ctx),
+            DevToolsStatesState::QueryOutputFileName => self.render_query_output_file_name(&ctx),
         }
     }
 
@@ -125,6 +146,18 @@ impl DevToolsApplication {
                     associated_string: String::new(),
                 })
             }
+
+            if ui.button("Export file in another format").clicked() {
+                let default_output_file = String::from(
+                    r#"C:\Users\victor.trejo\hackathon2022_test_files\output_file.op2"#,
+                );
+                self.transitions.push(Transition {
+                    kind: DevToolsStatesInput::ObtainedOutputFileName,
+                    associated_string: default_output_file,
+                });
+                self.states
+                    .consume(&DevToolsStatesInput::ExportInAnotherFormat);
+            }
         });
     }
 
@@ -136,6 +169,19 @@ impl DevToolsApplication {
         eframe::egui::SidePanel::right("DevToolsSidePanel").show(&ctx, |ui| {
             if ui.button("Confirm choice").clicked() {
                 self.states.consume(&DevToolsStatesInput::ObtainedFileName);
+            }
+        });
+    }
+
+    pub fn render_query_output_file_name(&mut self, ctx: &CtxRef) {
+        let mut file_name = self.transitions.last().unwrap().associated_string.clone();
+        eframe::egui::CentralPanel::default()
+            .show(&ctx, |ui| ui.text_edit_multiline(&mut file_name));
+
+        eframe::egui::SidePanel::right("DevToolsSidePanel").show(&ctx, |ui| {
+            if ui.button("Confirm choice").clicked() {
+                self.states
+                    .consume(&DevToolsStatesInput::ObtainedOutputFileName);
                 println!("{:?}", self.states.state());
             }
         });
@@ -146,6 +192,7 @@ struct Snippets {
     pub initial: String,
     pub open_file: String,
     pub print_table_of_contents: String,
+    pub export_in_another_format: String,
 }
 
 impl Snippets {
@@ -196,6 +243,43 @@ int main()
     vdm_LManSetParami(libraryManager, LMAN_VERBOSE, SYS_ON);
     vdm_LManTOC(libraryManager, "*");
     %placeholder%
+    "#,
+            ),
+            export_in_another_format: String::from(
+                r#"
+    char* output_filename = R"(%output_file_name%)";
+    Vint output_libType = -1;
+    datafiletype(const_cast<char*>(output_filename), &output_libType);
+
+    vdm_DataFun* output_libraryFunctions = vdm_DataFunBegin();
+
+    datafileinit(output_libType, output_libraryFunctions);
+
+    vdm_DataFunSetStatus(output_libraryFunctions, VDM_STATUS_NEW);
+
+    vdm_DataFunOpen(output_libraryFunctions, 0, output_filename, output_libType);
+
+    Vint output_ierr = vdm_DataFunError(output_libraryFunctions);
+    if (output_ierr) {
+        vdm_DataFunClose(output_libraryFunctions);
+        datafileterm(output_libType, output_libraryFunctions);
+        vdm_DataFunEnd(output_libraryFunctions);
+        return 1;
+    }
+
+    vis_Model* model = vis_ModelBegin ();
+    vdm_LManLoadModel(libraryManager, model);
+
+    vdm_LMan* output_libraryManager = vdm_LManBegin();
+    vdm_LManSetObject(output_libraryManager, VDM_DATAFUN, output_libraryFunctions);
+    vdm_LManSaveModel(output_libraryManager, model);
+
+    %placeholder%
+
+    vdm_DataFunClose(output_libraryFunctions);
+    datafileterm(output_libType, output_libraryFunctions);
+    vdm_DataFunEnd(output_libraryFunctions);
+    vdm_LManEnd(output_libraryManager);
     "#,
             ),
         }
