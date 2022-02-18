@@ -5,8 +5,7 @@ pub struct Snippets {
 impl Snippets {
     pub fn new() -> Snippets {
         Snippets {
-            initial: r#"
-#include "base/base.h"
+            initial: r#"#include "base/base.h"
 #include "vdm/vdm.h"
 
 int main()

@@ -1,20 +1,45 @@
-use crate::VdmTools::{self};
+use crate::DevTools::{self};
 use eframe::egui::{CtxRef, FontDefinitions, FontFamily};
 use eframe::{egui, epi};
+use rust_fsm::{self, StateMachine, StateMachineImpl};
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
 
+rust_fsm::state_machine! {
+    derive(Debug)
+    States(Initial)
+
+    Initial(ChooseSDK) => UseSDK,
+    Initial(InvalidChoice) => Unimplemented,
+    UseSDK(GenerateFile) => Final,
+}
+
+enum SDK {
+    Unknown,
+    Devtools,
+    CeetronDesktopComponents,
+    CeetronCloudComponents,
+    HoopsExchange,
+    HoopsCommunicator,
+    HoopsVisualize,
+    HoopsPublish,
+}
+
 pub struct TrainingWheelsApplication {
     name_of_output_file: String,
     file_preview: String,
+    SDK: SDK,
+    states: StateMachine<States>,
 }
 
 impl TrainingWheelsApplication {
     pub fn new(name_of_output_file: &str) -> TrainingWheelsApplication {
         TrainingWheelsApplication {
             name_of_output_file: name_of_output_file.to_string(),
-            file_preview: VdmTools::Snippets::new().initial,
+            file_preview: String::new(),
+            SDK: SDK::Unknown,
+            states: StateMachine::new(),
         }
     }
 
@@ -34,6 +59,52 @@ impl TrainingWheelsApplication {
         output_file.write(self.file_preview.as_bytes())?;
         Ok(())
     }
+
+    pub fn render_state(&mut self, ctx: &CtxRef) {
+        match self.states.state() {
+            StatesState::Initial => self.render_initial(ctx),
+            StatesState::Unimplemented => self.render_unimplemented(ctx),
+            _ => (),
+        }
+    }
+
+    fn render_initial(&mut self, ctx: &CtxRef) {
+        eframe::egui::SidePanel::left("Welcome to training wheels! Please choose a SDK").show(
+            ctx,
+            |ui| {
+                ui.label("Welcome to training wheels! Please choose a SDK");
+                if ui.button("DevTools").clicked() {
+                    self.states.consume(&StatesInput::ChooseSDK);
+                }
+                if ui.button("Ceetron Desktop Components").clicked() {
+                    self.states.consume(&StatesInput::InvalidChoice);
+                }
+                if ui.button("Ceetron Cloud Components").clicked() {
+                    self.states.consume(&StatesInput::InvalidChoice);
+                }
+                if ui.button("Hoops Exchange").clicked() {
+                    self.states.consume(&StatesInput::InvalidChoice);
+                }
+                if ui.button("Hoops Communicator").clicked() {
+                    self.states.consume(&StatesInput::InvalidChoice);
+                }
+                if ui.button("Hoops Visualize").clicked() {
+                    self.states.consume(&StatesInput::InvalidChoice);
+                }
+                if ui.button("Hoops Publish").clicked() {
+                    self.states.consume(&StatesInput::InvalidChoice);
+                }
+            },
+        );
+    }
+
+    fn render_unimplemented(&mut self, ctx: &CtxRef) {
+        self.render_initial(ctx);
+        eframe::egui::CentralPanel::default().show(ctx, |ui| {
+            let mut copy_of_preview = "Not yet implemented! Please choose another one!";
+            ui.text_edit_multiline(&mut copy_of_preview);
+        });
+    }
 }
 
 impl eframe::epi::App for TrainingWheelsApplication {
@@ -47,17 +118,23 @@ impl eframe::epi::App for TrainingWheelsApplication {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
+        self.render_state(ctx);
+
+        /*
         eframe::egui::SidePanel::left("").show(ctx, |ui| {
             if ui.button("Generate file and exit").clicked() {
                 self.generate_file(&self.name_of_output_file);
                 frame.quit();
             }
         });
+         */
 
+        /*
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
             let mut copy_of_preview = self.file_preview.clone();
             ui.text_edit_multiline(&mut copy_of_preview);
         });
+        */
     }
 
     fn name(&self) -> &str {
