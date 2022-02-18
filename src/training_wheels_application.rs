@@ -3,16 +3,17 @@ use eframe::{egui, epi};
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use std::ops::Index;
 
 pub struct TrainingWheelsApplication {
     name_of_output_file: String,
+    file_preview: String,
 }
 
 impl TrainingWheelsApplication {
     pub fn new(name_of_output_file: &str) -> TrainingWheelsApplication {
         TrainingWheelsApplication {
             name_of_output_file: name_of_output_file.to_string(),
+            file_preview: "placeholder".to_string(),
         }
     }
 
@@ -29,7 +30,7 @@ impl TrainingWheelsApplication {
 
     fn generate_file(&self, name_of_output_file: &str) -> Result<(), Box<dyn Error>> {
         let mut output_file = File::create(name_of_output_file)?;
-        output_file.write("Writing in file.".as_bytes())?;
+        output_file.write(self.file_preview.as_bytes())?;
         Ok(())
     }
 }
@@ -45,11 +46,16 @@ impl eframe::epi::App for TrainingWheelsApplication {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
-        eframe::egui::CentralPanel::default().show(ctx, |ui| {
+        eframe::egui::SidePanel::left("").show(ctx, |ui| {
             if ui.button("Generate file and exit").clicked() {
                 self.generate_file(&self.name_of_output_file);
                 frame.quit();
             }
+        });
+
+        eframe::egui::CentralPanel::default().show(ctx, |ui| {
+            let mut copy_of_preview = self.file_preview.clone();
+            ui.text_edit_multiline(&mut copy_of_preview);
         });
     }
 
