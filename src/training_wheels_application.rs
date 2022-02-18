@@ -46,12 +46,15 @@ impl TrainingWheelsApplication {
 
     pub fn configure_fonts(&self, ctx: &CtxRef) {
         let mut font_definition = FontDefinitions::default();
-        let font_size = 26.;
+        let font_size = 20.;
         for text_style in eframe::egui::TextStyle::all() {
             font_definition
                 .family_and_size
                 .insert(text_style, (FontFamily::Monospace, font_size));
         }
+        font_definition
+            .family_and_size
+            .insert(eframe::egui::TextStyle::Body, (FontFamily::Monospace, 12.));
         ctx.set_fonts(font_definition);
     }
 
