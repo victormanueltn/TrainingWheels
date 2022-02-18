@@ -1,3 +1,4 @@
+use crate::VdmTools::{self};
 use eframe::egui::{CtxRef, FontDefinitions, FontFamily};
 use eframe::{egui, epi};
 use std::error::Error;
@@ -13,7 +14,7 @@ impl TrainingWheelsApplication {
     pub fn new(name_of_output_file: &str) -> TrainingWheelsApplication {
         TrainingWheelsApplication {
             name_of_output_file: name_of_output_file.to_string(),
-            file_preview: "placeholder".to_string(),
+            file_preview: VdmTools::Snippets::new().initial,
         }
     }
 

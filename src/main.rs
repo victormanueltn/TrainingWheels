@@ -1,3 +1,4 @@
+mod VdmTools;
 mod training_wheels_application;
 use eframe::{egui, epi};
 use training_wheels_application::TrainingWheelsApplication;
