@@ -1,7 +1,7 @@
-use crate::DevTools::{self};
+use crate::DevTools::DevToolsApplication;
 use eframe::egui::{CtxRef, FontDefinitions, FontFamily};
 use eframe::{egui, epi};
-use rust_fsm::{self, StateMachine, StateMachineImpl};
+use rust_fsm::{self, StateMachine};
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -12,6 +12,7 @@ rust_fsm::state_machine! {
 
     Initial(ChooseSDK) => UseSDK,
     Initial(InvalidChoice) => Unimplemented,
+    Unimplemented(ChooseSDK) => UseSDK,
     UseSDK(GenerateFile) => Final,
 }
 
@@ -29,7 +30,7 @@ enum SDK {
 pub struct TrainingWheelsApplication {
     name_of_output_file: String,
     file_preview: String,
-    SDK: SDK,
+    SDK: DevToolsApplication,
     states: StateMachine<States>,
 }
 
@@ -38,7 +39,7 @@ impl TrainingWheelsApplication {
         TrainingWheelsApplication {
             name_of_output_file: name_of_output_file.to_string(),
             file_preview: String::new(),
-            SDK: SDK::Unknown,
+            SDK: DevToolsApplication::new(),
             states: StateMachine::new(),
         }
     }
@@ -54,9 +55,13 @@ impl TrainingWheelsApplication {
         ctx.set_fonts(font_definition);
     }
 
-    fn generate_file(&self, name_of_output_file: &str) -> Result<(), Box<dyn Error>> {
+    fn generate_file(
+        &self,
+        name_of_output_file: &str,
+        file_content: &String,
+    ) -> Result<(), Box<dyn Error>> {
         let mut output_file = File::create(name_of_output_file)?;
-        output_file.write(self.file_preview.as_bytes())?;
+        output_file.write(file_content.as_bytes())?;
         Ok(())
     }
 
@@ -64,7 +69,8 @@ impl TrainingWheelsApplication {
         match self.states.state() {
             StatesState::Initial => self.render_initial(ctx),
             StatesState::Unimplemented => self.render_unimplemented(ctx),
-            _ => (),
+            StatesState::UseSDK => self.render_use_SDK(ctx),
+            StatesState::Final => self.render_final(ctx),
         }
     }
 
@@ -101,9 +107,26 @@ impl TrainingWheelsApplication {
     fn render_unimplemented(&mut self, ctx: &CtxRef) {
         self.render_initial(ctx);
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
-            let mut copy_of_preview = "Not yet implemented! Please choose another one!";
-            ui.text_edit_multiline(&mut copy_of_preview);
+            let mut message_for_unimplemented = "Not yet implemented! Please choose another one!";
+            ui.text_edit_multiline(&mut message_for_unimplemented);
         });
+    }
+
+    fn render_final(&mut self, ctx: &CtxRef) {
+        eframe::egui::CentralPanel::default().show(ctx, |ui| {
+            ui.label("Thanks for using Training Wheels!");
+        });
+    }
+
+    fn render_use_SDK(&mut self, ctx: &CtxRef) {
+        eframe::egui::SidePanel::left("").show(ctx, |ui| {
+            if ui.button("Generate file and exit").clicked() {
+                self.states.consume(&StatesInput::GenerateFile);
+                let file_content = self.SDK.get_file_content();
+                self.generate_file(&self.name_of_output_file, &file_content);
+            }
+        });
+        self.SDK.render(ctx);
     }
 }
 
@@ -119,22 +142,6 @@ impl eframe::epi::App for TrainingWheelsApplication {
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
         self.render_state(ctx);
-
-        /*
-        eframe::egui::SidePanel::left("").show(ctx, |ui| {
-            if ui.button("Generate file and exit").clicked() {
-                self.generate_file(&self.name_of_output_file);
-                frame.quit();
-            }
-        });
-         */
-
-        /*
-        eframe::egui::CentralPanel::default().show(ctx, |ui| {
-            let mut copy_of_preview = self.file_preview.clone();
-            ui.text_edit_multiline(&mut copy_of_preview);
-        });
-        */
     }
 
     fn name(&self) -> &str {
