@@ -5,14 +5,16 @@ use std::error::Error;
 use std::vec;
 
 rust_fsm::state_machine! {
-    derive(Debug)
+    derive(PartialEq,Debug,Clone)
     DevToolsStates(Initial)
 
     Initial(Initialize) => UseSDK,
     UseSDK(OpenFile) => QueryFileName,
     QueryFileName(ObtainedFileName) => UseSDK,
+    UseSDK(PrintTableOfContents) => UseSDK,
 }
 
+#[derive(Clone)]
 struct Transition {
     kind: DevToolsStatesInput,
     associated_string: String,
@@ -46,6 +48,9 @@ impl DevToolsApplication {
                 DevToolsStatesInput::ObtainedFileName => {
                     self.apply_open_file(&resulting_string, &transition.associated_string)
                 }
+                DevToolsStatesInput::PrintTableOfContents => {
+                    self.apply_print_table_of_contents(&resulting_string)
+                }
             }
         }
         resulting_string
@@ -55,6 +60,14 @@ impl DevToolsApplication {
         let resulting_string =
             str::replace(&resulting_string, "%placeholder%", &self.snippets.open_file);
         str::replace(&resulting_string, "%file_name%", file_name)
+    }
+
+    fn apply_print_table_of_contents(&self, resulting_string: &String) -> String {
+        str::replace(
+            &resulting_string,
+            "%placeholder%",
+            &self.snippets.print_table_of_contents,
+        )
     }
 
     pub fn get_file_content(&self) -> String {
@@ -91,6 +104,21 @@ impl DevToolsApplication {
                 });
                 self.states.consume(&DevToolsStatesInput::OpenFile);
             }
+
+            if self
+                .transitions
+                .iter()
+                .any(|transition| transition.kind == DevToolsStatesInput::ObtainedFileName)
+            {
+                if ui.button("Print table of contents").clicked() {
+                    self.states
+                        .consume(&DevToolsStatesInput::PrintTableOfContents);
+                    self.transitions.push(Transition {
+                        kind: DevToolsStatesInput::PrintTableOfContents,
+                        associated_string: String::new(),
+                    })
+                }
+            }
         });
     }
 
@@ -111,6 +139,7 @@ impl DevToolsApplication {
 struct Snippets {
     pub initial: String,
     pub open_file: String,
+    pub print_table_of_contents: String,
 }
 
 impl Snippets {
@@ -154,6 +183,12 @@ int main()
     datafileterm(libType, libraryFunctions);
     vdm_DataFunEnd(libraryFunctions);
     vdm_LManEnd(libraryManager);
+    "#,
+            ),
+            print_table_of_contents: String::from(
+                r#"
+    vdm_LManSetParami(libraryManager, LMAN_VERBOSE, SYS_ON);
+    vdm_LManTOC(libraryManager, "*");
     "#,
             ),
         }
