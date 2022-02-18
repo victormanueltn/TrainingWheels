@@ -8,10 +8,10 @@ rust_fsm::state_machine! {
     derive(PartialEq,Debug,Clone)
     DevToolsStates(Initial)
 
-    Initial(Initialize) => UseSDK,
-    UseSDK(OpenFile) => QueryFileName,
-    QueryFileName(ObtainedFileName) => UseSDK,
-    UseSDK(PrintTableOfContents) => UseSDK,
+    Initial(Initialize) => UseSDKBasic,
+    UseSDKBasic(OpenFile) => QueryFileName,
+    QueryFileName(ObtainedFileName) => UseSDKWithFile,
+    UseSDKBasic(PrintTableOfContents) => UseSDKBasic,
 }
 
 #[derive(Clone)]
@@ -81,8 +81,9 @@ impl DevToolsApplication {
                 self.states.consume(&DevToolsStatesInput::Initialize);
                 ()
             }
-            DevToolsStatesState::UseSDK => self.render_use_SDK(&ctx),
+            DevToolsStatesState::UseSDKBasic => self.render_use_SDK(&ctx),
             DevToolsStatesState::QueryFileName => self.render_query_file_name(&ctx),
+            DevToolsStatesState::UseSDKWithFile => self.render_use_SDK_with_file(&ctx),
         }
     }
 
@@ -104,20 +105,25 @@ impl DevToolsApplication {
                 });
                 self.states.consume(&DevToolsStatesInput::OpenFile);
             }
+        });
+    }
 
-            if self
-                .transitions
-                .iter()
-                .any(|transition| transition.kind == DevToolsStatesInput::ObtainedFileName)
-            {
-                if ui.button("Print table of contents").clicked() {
-                    self.states
-                        .consume(&DevToolsStatesInput::PrintTableOfContents);
-                    self.transitions.push(Transition {
-                        kind: DevToolsStatesInput::PrintTableOfContents,
-                        associated_string: String::new(),
-                    })
-                }
+    pub fn render_use_SDK_with_file(&mut self, ctx: &CtxRef) {
+        let file_content = self.apply_transitions(&self.transitions);
+        let mut preview = remove_placeholder(&file_content);
+
+        eframe::egui::CentralPanel::default().show(&ctx, |ui| {
+            ui.text_edit_multiline(&mut preview);
+        });
+
+        eframe::egui::SidePanel::right("DevToolsSidePanel").show(&ctx, |ui| {
+            if ui.button("Print table of contents").clicked() {
+                self.states
+                    .consume(&DevToolsStatesInput::PrintTableOfContents);
+                self.transitions.push(Transition {
+                    kind: DevToolsStatesInput::PrintTableOfContents,
+                    associated_string: String::new(),
+                })
             }
         });
     }
@@ -189,6 +195,7 @@ int main()
                 r#"
     vdm_LManSetParami(libraryManager, LMAN_VERBOSE, SYS_ON);
     vdm_LManTOC(libraryManager, "*");
+    %placeholder%
     "#,
             ),
         }
